@@ -14,6 +14,9 @@ importers:
       '@vueuse/core':
         specifier: ^14.1.0
         version: 14.1.0(vue@3.5.27)
+      devtools-detector:
+        specifier: ^2.0.25
+        version: 2.0.25
       idb-keyval:
         specifier: ^6.2.2
         version: 6.2.2
@@ -599,6 +602,9 @@ packages:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
 
+  compare-versions@3.6.0:
+    resolution: {integrity: sha512-W6Af2Iw1z4CB7q4uU4hv646dW9GQuBM+YpC0UvUCWSD8w90SJjp+ujJuXaEMtAXBtSqGfMPuFOVn4/+FlaqfBA==}
+
   confbox@0.1.8:
     resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
 
@@ -615,6 +621,9 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  devtools-detector@2.0.25:
+    resolution: {integrity: sha512-Jp2kaQ3Plf4LDDrQPR5bMYvc6htUefuh1Gda1HWysUK/V1U1f2x40PuJYnTMyvxM1PRr7X0ej/FmKBXaNlV9xA==}
 
   dompurify@3.2.7:
     resolution: {integrity: sha512-WhL/YuveyGXJaerVlMYGWhvQswa7myDG17P7Vu65EWC05o8vfeNbvNf4d/BOvH99+ZW+LlQsc1GDKMa1vNK6dw==}
@@ -1373,6 +1382,8 @@ snapshots:
     dependencies:
       readdirp: 5.0.0
 
+  compare-versions@3.6.0: {}
+
   confbox@0.1.8: {}
 
   confbox@0.2.2: {}
@@ -1384,6 +1395,10 @@ snapshots:
   csstype@3.2.3: {}
 
   detect-libc@2.1.2: {}
+
+  devtools-detector@2.0.25:
+    dependencies:
+      compare-versions: 3.6.0
 
   dompurify@3.2.7:
     optionalDependencies:
