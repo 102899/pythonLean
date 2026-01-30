@@ -9,273 +9,47 @@ import { isDark, toggleDark } from '../composables/useTheme'
 const isExecuting = ref(false)
 
 
+import { categories } from '../data/curriculum'
+import { useProgress } from '../composables/useProgress'
 
-// Data Structure: Tiered Curriculum with Content & Quiz
-// Note: Only populating the first chapter fully for demonstration
-const categories = [
-  {
-    id: 'basics',
-    title: '基础篇',
-    chapters: [
-      { 
-        title: "思维转变：JS 与 Python 的异同",
-        learnContent: `
-          <h3 class="text-xl font-bold mb-4 text-slate-800 dark:text-white">从 JavaScript 到 Python 的思维跃迁</h3>
-          <div class="space-y-4 text-slate-600 dark:text-gray-300">
-            <p>作为一名前端开发者，你已经掌握了编程的核心概念。Python 和 JavaScript 在很多方面是相似的，但也有一些关键的区别。</p>
-            
-            <div class="bg-indigo-50 dark:bg-gray-800/50 p-4 rounded-lg border border-indigo-100 dark:border-white/5">
-              <h4 class="font-bold text-indigo-600 dark:text-indigo-400 mb-2">1. 语法风格：花括号 vs 缩进</h4>
-              <p>JS 使用 <code>{}</code> 来界定代码块，而 Python 强制使用<strong>缩进 (Indentation)</strong>。这使得 Python 代码看起来非常整洁，但也要求你必须严格遵守缩进规则。</p>
-            </div>
+const { 
+  markComplete, 
+  toggleComplete,
+  isStepComplete, 
+  isChapterStarted, 
+  isChapterFullyComplete,
+  getUncompletedCount,
+  progress 
+} = useProgress()
 
-            <div class="bg-indigo-50 dark:bg-gray-800/50 p-4 rounded-lg border border-indigo-100 dark:border-white/5">
-              <h4 class="font-bold text-indigo-600 dark:text-indigo-400 mb-2">2. 变量声明</h4>
-              <p>JS 需要 <code>var/let/const</code>。Python 不需要任何关键字，直接赋值即声明：<code>name = "Alice"</code>。</p>
-            </div>
+// Computed for current chapter status
+const isCurrentStepComplete = computed(() => {
+  if (!activeChapter.value) return false
+  return isStepComplete(activeChapter.value.id, activeStep.value)
+})
 
-            <div class="bg-indigo-50 dark:bg-gray-800/50 p-4 rounded-lg border border-indigo-100 dark:border-white/5">
-              <h4 class="font-bold text-indigo-600 dark:text-indigo-400 mb-2">3. 命名规范</h4>
-              <p>JS 习惯使用 <code>camelCase</code> (userAge)，而 Python 推荐使用 <code>snake_case</code> (user_age)。</p>
-            </div>
-          </div>
-        `,
-        code: `# 1. Hello World
-print("Hello from Python!")
-
-# 2. 变量声明 (无需 var/let/const)
-name = "Frontend Dev"
-age = 25
-print(f"User: {name}, Age: {age}")
-
-# 3. 代码块使用缩进 (Indentation) 而不是大括号 {}
-if age > 18:
-    print("Indentation determines scope in Python!")
-    print("Still inside the if block.")
-
-print("Outside the if block.")`,
-        quiz: [
-          {
-            type: 'choice',
-            question: "Python 使用什么来界定代码块的作用域？",
-            options: ["花括号 {}", "缩进 (Indentation)", "分号 ;", "关键字 end"],
-            correctAnswer: "缩进 (Indentation)"
-          },
-          {
-            type: 'choice',
-            question: "以下哪个是 Python 推荐的变量命名风格？",
-            options: ["camelCase (userAge)", "PascalCase (UserAge)", "snake_case (user_age)", "kebab-case (user-age)"],
-            correctAnswer: "snake_case (user_age)"
-          },
-          {
-            type: 'boolean',
-            question: "Python 声明变量时需要使用 var 或 let 关键字吗？",
-            options: ["需要", "不需要"],
-            correctAnswer: "不需要"
-          }
-        ]
-      },
-      { 
-        title: "环境与工具：Node/NPM 的对应关系",
-        learnContent: "<p>本节内容待补充...</p>",
-        code: `# Node.js 生态 vs Python 生态对照... (省略，同前)`,
-        quiz: []
-      },
-      { 
-        title: "核心语法：变量、类型与 F-Strings",
-        code: `# 变量与类型
-x = 10          # int
-y = 3.14        # float
-z = "Python"    # str
-is_active = True # bool (注意大写 T)
-
-# F-Strings (Template Literals in JS)
-# JS: \`Hello \${z}\`
-msg = f"Hello {z}, x + y = {x + y}"
-print(msg)
-
-# 类型转换
-num_str = "123"
-num_int = int(num_str)
-print(num_int + 10)`
-      }
-    ]
-  },
-  {
-    id: 'core',
-    title: '核心篇',
-    chapters: [
-      { 
-        title: "数据结构：列表、字典与集合",
-        code: `# 列表 (List) -> JS Arrays
-fruits = ["apple", "banana", "cherry"]
-fruits.append("date") # .push()
-print(fruits[0])      # Index access
-print(fruits)
-
-# 字典 (Dictionary) -> JS Objects
-user = {
-    "name": "Alice",
-    "role": "Admin",
-    "level": 1
+function handleStepToggle() {
+  if (!activeChapter.value) return
+  toggleComplete(activeChapter.value.id, activeStep.value)
 }
-print(user["name"])
 
-# 列表推导式 (List Comprehension) -> JS .map() / .filter()
-numbers = [1, 2, 3, 4, 5]
-# JS: numbers.map(n => n * 2)
-doubled = [n * 2 for n in numbers]
-# JS: numbers.filter(n => n % 2 === 0)
-evens = [n for n in numbers if n % 2 == 0]
-
-print(f"Doubled: {doubled}")
-print(f"Evens: {evens}")`
-      },
-      { 
-        title: "函数与作用域：def、lambda 与闭包",
-        code: `# 函数定义 -> JS function
-def greet(name, greeting="Hello"):
-    return f"{greeting}, {name}!"
-
-print(greet("Bob"))
-print(greet("Charlie", greeting="Hi"))
-
-# Lambda 表达式 -> JS Arrow Function
-# JS: const add = (a, b) => a + b
-add = lambda a, b: a + b
-print(add(5, 3))
-
-# 作用域 (Scope)
-count = 0
-def increment():
-    global count # 需要声明 global 才能修改全局变量
-    count += 1
-
-increment()
-print(f"Count: {count}")`
-      },
-      { 
-        title: "面向对象编程：类、Self 与继承",
-        code: `# 类 (Class)
-class Animal:
-    def __init__(self, name): # Constructor
-        self.name = name      # this.name = name
-    
-    def speak(self):
-        pass
-
-# 继承 (Inheritance)
-class Dog(Animal):
-    def speak(self):
-        return "Woof!"
-
-class Cat(Animal):
-    def speak(self):
-        return "Meow!"
-
-dog = Dog("Buddy")
-cat = Cat("Whiskers")
-
-print(f"{dog.name} says {dog.speak()}")
-print(f"{cat.name} says {cat.speak()}")`
-      }
-    ]
-  },
-  {
-    id: 'advanced',
-    title: '进阶篇',
-    chapters: [
-      { 
-        title: "错误处理与模块：try/except 与 import",
-        code: `# 错误处理 -> JS try/catch
-try:
-    result = 10 / 0
-except ZeroDivisionError as e:
-    print(f"Error caught: {e}")
-finally:
-    print("Cleanup code here (always runs)")
-
-# 自定义异常
-def validate_age(age):
-    if age < 0:
-        raise ValueError("Age cannot be negative")
-
-try:
-    validate_age(-5)
-except ValueError as e:
-    print(e)`
-      },
-      { 
-        title: "异步编程：Event Loop 与 Asyncio",
-        code: `# 异步编程 -> JS async/await
-import asyncio
-
-async function_simulation():
-    print("Start async task...")
-    await asyncio.sleep(1) # 非阻塞等待
-    print("Async task finished after 1s")
-    return "Result"
-
-async def main():
-    print("Main start")
-    # await function_simulation()
-    # 并发执行 (类似 Promise.all)
-    await asyncio.gather(
-        function_simulation(),
-        function_simulation()
-    )
-    print("Main end")
-
-# 在 Pyodide 环境中运行 async 代码通常需要特殊处理
-# 但基础语法是通用的
-# print(asyncio.run(main())) # 注意：在某些 web loop 环境下可能受限`
-      }
-    ]
-  },
-  {
-    id: 'project',
-    title: '实战篇',
-    chapters: [
-      { 
-        title: "Python Web 开发：FastAPI/Django 简介",
-        code: `# FastAPI 示例 (伪代码，需要服务器环境)
-# 类似于 Express.js + TypeScript
-
-# from fastapi import FastAPI
-# app = FastAPI()
-
-# @app.get("/")
-# def read_root():
-#     return {"Hello": "World"}
-
-# @app.get("/items/{item_id}")
-# def read_item(item_id: int):
-#     return {"item_id": item_id}
-
-print("FastAPI 是现代、高性能的 Python Web 框架。")
-print("它利用 Python 类型提示 (Type Hints)以此来提供自动验证和文档 (Swagger UI)。")`
-      },
-      { 
-        title: "实战项目：将 JS 应用重构为 Python",
-        code: `# 模拟一个简单的数据处理任务
-# JS: fetch users -> filter active -> map names
-
-users = [
-    {"id": 1, "name": "Alice", "active": True},
-    {"id": 2, "name": "Bob", "active": False},
-    {"id": 3, "name": "Charlie", "active": True},
-]
-
-def get_active_user_names(users_list):
-    # 链式操作在 Python 中通常使用 List Comprehensions
-    return [u["name"] for u in users_list if u["active"]]
-
-print("Active Users:", get_active_user_names(users))`
-      }
-    ]
+function handleNextStep() {
+  // Auto-mark current step as complete when proceeding
+  if (activeChapter.value) {
+    markComplete(activeChapter.value.id, activeStep.value)
   }
-]
+  
+  if (activeStep.value === 'learn') activeStep.value = 'practice'
+  else if (activeStep.value === 'practice') activeStep.value = 'quiz'
+}
 
+function handleRunCodeAutoMark() {
+    handleRun()
+    // Auto-mark practice as complete upon running code
+    if (activeChapter.value && activeStep.value === 'practice') {
+        markComplete(activeChapter.value.id, 'practice')
+    }
+}
 const activeCategoryId = ref('basics')
 const activeCategory = computed(() => categories.find(c => c.id === activeCategoryId.value))
 
@@ -332,6 +106,10 @@ function submitQuiz() {
   
   quizScore.value = Math.round((score / total) * 100)
   quizSubmitted.value = true
+  
+  if (quizScore.value === 100 && activeChapter.value) {
+    markComplete(activeChapter.value.id, 'quiz')
+  }
 }
 
 // Data Structure: Tiered Curriculum with Content & Quiz
@@ -378,9 +156,12 @@ async function handleRun() {
         <nav class="hidden md:flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
           <button v-for="cat in categories" :key="cat.id"
             @click="activeCategoryId = cat.id"
-            class="px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+            class="px-3 py-1.5 rounded-md text-sm font-medium transition-all relative"
             :class="activeCategoryId === cat.id ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'">
             {{ cat.title }}
+            <span v-if="getUncompletedCount(cat.id) > 0" class="ml-1.5 inline-flex items-center justify-center px-1.5 h-4 text-[10px] font-bold leading-none text-white bg-emerald-500 rounded-full">
+              {{ getUncompletedCount(cat.id) }}
+            </span>
           </button>
         </nav>
       </div>
@@ -396,10 +177,13 @@ async function handleRun() {
                  ? 'text-white' 
                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
              ]">
-             <!-- Active Background Pill (Absolute to animate if we wanted, but static for now for simplicity) -->
+             <!-- Active Background Pill -->
              <div v-if="activeStep === step.id" class="absolute inset-0 bg-indigo-600 rounded-full shadow-md z-[-1]"></div>
              
-             <span class="opacity-80">{{ step.icon }}</span>
+             <!-- Checkmark if step completed -->
+             <span v-if="activeChapter && isStepComplete(activeChapter.id, step.id)" class="text-[10px] mr-0.5" :class="activeStep === step.id ? 'text-white/80' : 'text-emerald-500'">✓</span>
+             <span v-else class="opacity-80">{{ step.icon }}</span>
+             
              <span :class="{'hidden sm:inline': activeStep !== step.id}">{{ step.label }}</span>
              
              <!-- Flow Arrow indicator -->
@@ -417,15 +201,12 @@ async function handleRun() {
         <div v-else-if="isReady" class="text-xs text-emerald-500 dark:text-emerald-400 flex items-center gap-1 hidden sm:flex bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full border border-emerald-100 dark:border-emerald-800">
            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Ready
         </div>
-
-        <button @click="toggleDark()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
-          <span v-if="isDark">☀️</span>
-          <span v-else>🌙</span>
-        </button>
+        
+        <!-- Theme Toggle Removed -->
 
         <button 
           v-if="activeStep === 'practice'"
-          @click="handleRun"
+          @click="handleRunCodeAutoMark"
           :disabled="isLoading || isExecuting"
           class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 md:px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95">
           <svg v-if="isExecuting" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -454,11 +235,24 @@ async function handleRun() {
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30' 
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'">
              <div class="flex items-start gap-3">
-                <span class="flex items-center justify-center w-5 h-5 rounded transition-colors text-[10px] shrink-0 mt-0.5"
-                  :class="activeChapterIndex === index ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'">
-                  {{ index + 1 }}
-                </span>
-                <span class="leading-snug font-medium">{{ module.title }}</span>
+                <!-- Status Indicator -->
+                <div class="flex items-center justify-center w-5 h-5 shrink-0 mt-0.5">
+                  <!-- Completed -->
+                  <div v-if="isChapterFullyComplete(module.id)" class="text-emerald-500">
+                    <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                  </div>
+                  <!-- In Progress -->
+                  <div v-else-if="isChapterStarted(module.id)" class="text-indigo-400">
+                    <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+                  </div>
+                  <!-- Not Started (Index) -->
+                  <span v-else class="flex items-center justify-center w-5 h-5 rounded text-[10px] transition-colors"
+                     :class="activeChapterIndex === index ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'">
+                     {{ index + 1 }}
+                  </span>
+                </div>
+                
+                <span class="leading-snug font-medium truncate">{{ module.title }}</span>
              </div>
            </div>
          </div>
@@ -467,8 +261,9 @@ async function handleRun() {
       <!-- Content Area (Dynamic based on activeStep) -->
       <main class="flex-1 flex flex-col lg:flex-row min-w-0 bg-white dark:bg-slate-950 relative overflow-hidden">
         
+        <transition name="fade-slide" mode="out-in">
         <!-- MODE 1: LEARN -->
-        <div v-if="activeStep === 'learn'" class="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
+        <div v-if="activeStep === 'learn'" key="learn" class="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
            <div class="prose prose-slate dark:prose-invert max-w-none">
              <h1 class="text-3xl font-bold mb-6 text-slate-900 dark:text-white">{{ activeChapter.title }}</h1>
              <div v-if="activeChapter.learnContent" v-html="activeChapter.learnContent"></div>
@@ -477,23 +272,42 @@ async function handleRun() {
              </div>
            </div>
            
-           <div class="mt-12 flex justify-end pb-10">
-             <button @click="activeStep = 'practice'" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all flex items-center gap-2">
+           <div class="mt-12 flex items-center justify-between pb-10 border-t border-slate-100 dark:border-slate-800 pt-8">
+             <button @click="handleStepToggle" 
+               class="px-5 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2"
+               :class="isCurrentStepComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'">
+               <span v-if="isCurrentStepComplete">✓ 已学习 (点击取消)</span>
+               <span v-else>○ 标记为已学</span>
+             </button>
+
+             <button @click="handleNextStep" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all flex items-center gap-2">
                下一步：代码实操 ➜
              </button>
            </div>
         </div>
 
         <!-- MODE 2: PRACTICE (EDITOR) -->
-        <template v-else-if="activeStep === 'practice'">
+        <div v-else-if="activeStep === 'practice'" key="practice" class="flex-1 flex flex-col lg:flex-row min-w-0 w-full">
           <div class="flex-1 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1e1e1e] relative group flex flex-col min-h-0">
              <div class="flex items-center justify-between px-4 py-2 bg-white dark:bg-[#2d2d2d] border-b border-slate-200 dark:border-black/20 text-xs shadow-sm z-10 shrink-0">
                 <span class="text-slate-500 dark:text-gray-400 font-mono">main.py</span>
-                <span class="flex items-center gap-3">
-                   <button @click="activeStep = 'learn'" class="hover:text-indigo-600 dark:hover:text-white text-slate-400 dark:text-gray-500 transition-colors">← 返回学习</button>
+                
+                <div class="flex items-center gap-3">
+                   <button @click="handleStepToggle" 
+                     class="flex items-center gap-1.5 px-2 py-1 rounded transition-colors text-xs"
+                     :class="isCurrentStepComplete ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-500 hover:text-slate-700 dark:text-gray-500 dark:hover:text-gray-300'">
+                     <span class="text-[10px]">{{ isCurrentStepComplete ? '✓' : '○' }}</span>
+                     <span>{{ isCurrentStepComplete ? '已完成实操' : '标记完成' }}</span>
+                   </button>
+                
                    <span class="text-slate-300 dark:text-gray-700">|</span>
-                   <button @click="activeStep = 'quiz'" class="hover:text-emerald-500 dark:hover:text-emerald-400 text-slate-400 dark:text-gray-500 transition-colors">前往考核 →</button>
-                </span>
+                   
+                   <span class="flex items-center gap-3">
+                      <button @click="activeStep = 'learn'" class="hover:text-indigo-600 dark:hover:text-white text-slate-400 dark:text-gray-500 transition-colors">← 返回学习</button>
+                      <span class="text-slate-300 dark:text-gray-700">|</span>
+                      <button @click="activeStep = 'quiz'" class="hover:text-emerald-500 dark:hover:text-emerald-400 text-slate-400 dark:text-gray-500 transition-colors">前往考核 →</button>
+                   </span>
+                </div>
              </div>
              <textarea 
                class="flex-1 w-full bg-transparent text-slate-800 dark:text-gray-300 font-mono p-4 resize-none focus:outline-none leading-relaxed text-sm lg:text-base selection:bg-indigo-500/30 overflow-auto"
@@ -515,13 +329,22 @@ async function handleRun() {
                </div>
              </div>
           </div>
-        </template>
+        </div>
 
         <!-- MODE 3: QUIZ -->
-        <div v-else-if="activeStep === 'quiz'" class="flex-1 overflow-y-auto p-8 max-w-3xl mx-auto w-full">
-           <h2 class="text-2xl font-bold mb-8 text-slate-900 dark:text-white flex items-center gap-3">
-             <span class="text-3xl">📝</span> 章节考核: {{ activeChapter.title }}
-           </h2>
+        <div v-else-if="activeStep === 'quiz'" key="quiz" class="flex-1 overflow-y-auto p-8 max-w-3xl mx-auto w-full">
+           <div class="flex items-center justify-between mb-8">
+             <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+               <span class="text-3xl">📝</span> 章节考核: {{ activeChapter.title }}
+             </h2>
+             
+             <button @click="handleStepToggle" 
+               class="px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 text-sm"
+               :class="isCurrentStepComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'">
+               <span>{{ isCurrentStepComplete ? '✓ 已完成' : '○ 标记完成' }}</span>
+             </button>
+           </div>
+
 
            <div v-if="activeChapter.quiz && activeChapter.quiz.length > 0">
              
@@ -598,7 +421,21 @@ async function handleRun() {
            </div>
         </div>
 
+        </transition>
       </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
+}
+</style>

@@ -13,11 +13,8 @@
       </div>
       
       <div class="flex items-center gap-4">
-        <button @click="toggleDark()" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
-          <span v-if="isDark">☀️</span>
-          <span v-else>🌙</span>
-        </button>
-        <a href="https://github.com/your-repo" target="_blank" class="hidden sm:block text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+        <!-- Theme Toggle Removed as per request -->
+        <a href="https://github.com/102899/python-starter-kit" target="_blank" class="hidden sm:block text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
           GitHub
         </a>
       </div>
@@ -32,11 +29,49 @@
         <div class="absolute bottom-20 left-1/3 w-96 h-96 bg-blue-300/30 dark:bg-blue-900/20 rounded-full blur-[100px] animate-blob animation-delay-4000"></div>
       </div>
 
-      <div class="relative z-10 max-w-4xl mx-auto text-center">
+      <div class="relative z-10 max-w-4xl mx-auto text-center flex flex-col items-center">
+        <!-- Badge -->
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide border border-indigo-100 dark:border-indigo-500/20">
           <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
           For Frontend Developers
         </div>
+
+        <!-- Progress Dashboard (New) -->
+        <div v-if="initialized && totalStats.totalChapters > 0" class="mb-12 inline-flex items-center gap-6 p-2 pr-6 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-white/50 dark:border-slate-700/50 shadow-xl shadow-indigo-500/5 animate-fade-in-up">
+           <div class="relative w-16 h-16 shrink-0">
+             <svg class="w-full h-full transform -rotate-90">
+               <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" fill="none" class="text-slate-200 dark:text-slate-700" />
+               <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" fill="none" class="text-indigo-500" :stroke-dasharray="175.9" :stroke-dashoffset="175.9 - (175.9 * totalStats.progressPercentage) / 100" stroke-linecap="round" />
+             </svg>
+             <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">{{ totalStats.progressPercentage }}%</span>
+           </div>
+           
+           <div class="text-left">
+             <div class="text-sm font-bold text-slate-800 dark:text-white mb-0.5">
+               整体学习进度
+             </div>
+             <div class="text-xs text-slate-500 dark:text-slate-400">
+               已完成 {{ totalStats.completedChapters }} / {{ totalStats.totalChapters }} 章节
+             </div>
+           </div>
+
+           <div class="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
+           
+           <div class="text-left">
+             <div class="text-sm font-bold text-slate-800 dark:text-white mb-0.5 flex items-center gap-1.5">
+               <span>新内容</span>
+               <span v-if="newContentCount > 0" class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+             </div>
+             <div class="text-xs text-slate-500 dark:text-slate-400">
+               {{ newContentCount }} 节新课更新
+             </div>
+           </div>
+        </div>
+
+
         
         <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-tight text-slate-900 dark:text-white">
           像写 JavaScript 一样 <br> 
@@ -119,14 +154,14 @@
           </p>
           
           <div class="space-y-4">
-             <a href="vscode://vscode.git/clone?url=/Users/isapp/Documents/dev/github/pythonLean/starter-kit"
+             <a href="vscode://vscode.git/clone?url=https://github.com/102899/python-starter-kit.git"
                 class="block w-full text-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all hover:scale-[1.02] shadow-lg shadow-blue-500/20">
                 🚀 克隆入门套件 (Local)
              </a>
              <div class="flex flex-col gap-2">
                <span class="text-xs text-slate-400 text-center">或手动运行:</span>
                <code class="bg-slate-100 dark:bg-black/30 px-3 py-2 rounded-lg text-xs font-mono select-all text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 break-all text-center">
-                 git clone /Users/isapp/Documents/dev/github/pythonLean/starter-kit my-project
+                 git clone https://github.com/102899/python-starter-kit.git
                </code>
              </div>
           </div>
@@ -144,6 +179,9 @@
 <script setup>
 import { ref } from 'vue'
 import { isDark, toggleDark } from '../composables/useTheme'
+import { useProgress } from '../composables/useProgress'
+
+const { totalStats, newContentCount, initialized } = useProgress()
 
 const showVsCodeModal = ref(false)
 </script>
@@ -163,5 +201,13 @@ const showVsCodeModal = ref(false)
 }
 .animation-delay-4000 {
   animation-delay: 4s;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
 }
 </style>
