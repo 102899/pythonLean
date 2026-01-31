@@ -12,6 +12,11 @@ const routes = [
     path: '/editor',
     name: 'WebEditor',
     component: WebEditor
+  },
+  {
+    path: '/brain',
+    name: 'KnowledgeMap',
+    component: () => import('../views/KnowledgeMap.vue')
   }
 ]
 

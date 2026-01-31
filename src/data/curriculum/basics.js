@@ -32,6 +32,12 @@ export const basics = {
             </div>
           </div>
         `,
+            concepts: [
+                { id: 'py_print', label: 'print() 函数', type: 'concept', desc: 'Python 的输出函数，类似于 JS 的 console.log()。', refJs: 'console.log()' },
+                { id: 'py_comment', label: '注释 (#)', type: 'syntax', desc: 'Python 使用井号 # 来编写单行注释，解释器会忽略井号后的内容。', refJs: '//' },
+                { id: 'py_indent', label: '缩进 (作用域)', type: 'syntax', desc: 'Python 用缩进代替花括号来定义代码块作用域，这是最显著的区别之一。', refJs: '{ }' },
+                { id: 'py_snake_case', label: '蛇形命名法', type: 'convention', desc: 'Python 推荐使用 snake_case 命名变量 (如 user_age)，而非 JS 的 camelCase。', refJs: 'camelCase' }
+            ],
             code: `# 1. 打印 Hello World
 print("Hello from Python!")
 
@@ -173,6 +179,12 @@ s = <span class="text-emerald-600 font-bold">str(100)</span></code></pre>
             </section>
           </div>
         `,
+            concepts: [
+                { id: 'py_bool_true', label: '布尔值 True/False', type: 'concept', desc: 'Python 的布尔值。注意首字母必须大写！', refJs: 'true / false' },
+                { id: 'py_none', label: 'None 空值', type: 'concept', desc: 'Python 的空值对象，等同于 JS 的 null。', refJs: 'null' },
+                { id: 'py_f_string', label: 'F-String 模板', type: 'feature', desc: '在引号前加 f，即可在花括号内嵌入变量，非常简洁！', refJs: '`${var}`' },
+                { id: 'py_type_cast', label: '类型转换', type: 'approach', desc: 'Python 是强类型语言，需要显式使用 int()/str() 等函数转换类型。', refJs: 'Number() / String()' }
+            ],
             code: `# 1. 变量定义
 username = "Frontend_Dev"
 level = 99
