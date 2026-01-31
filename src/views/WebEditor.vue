@@ -244,7 +244,10 @@ function handleConsoleResize(e) {
   const windowWidth = document.body.clientWidth
   let newWidth = windowWidth - e.clientX
   const MIN_C_WIDTH = 200
-  const MAX_C_WIDTH = 800
+  // Max width should leave at least 300px for editor + sidebar
+  // But strictly, dynamic limit: available space - sidebar(260) - min_editor(100)
+  const MAX_C_WIDTH = Math.min(800, windowWidth - sidebarWidth.value - 100)
+  
   if (newWidth < MIN_C_WIDTH) newWidth = MIN_C_WIDTH
   if (newWidth > MAX_C_WIDTH) newWidth = MAX_C_WIDTH
   consoleWidth.value = newWidth
@@ -321,18 +324,7 @@ function stopConsoleResize() {
            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Ready
         </div>
         
-        <button 
-          v-if="activeStep === 'practice'"
-          @click="handleRunCodeAutoMark"
-          :disabled="isLoading || isExecuting"
-          class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 md:px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95">
-          <svg v-if="isExecuting" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span v-else>Run</span>
-          <span v-if="!isExecuting && !isLoading" class="ml-0.5">▶</span>
-        </button>
+
       </div>
     </header>
 
@@ -415,7 +407,7 @@ function stopConsoleResize() {
 
         <!-- MODE 2: PRACTICE (EDITOR) -->
         <div v-else-if="activeStep === 'practice'" key="practice" class="flex-1 flex flex-col lg:flex-row min-w-0 w-full">
-          <div class="flex-1 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1e1e1e] relative group flex flex-col min-h-0">
+          <div class="flex-1 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1e1e1e] relative group flex flex-col min-h-0 min-w-0">
              <div class="flex items-center justify-between px-4 py-2 bg-white dark:bg-[#2d2d2d] border-b border-slate-200 dark:border-black/20 text-xs shadow-sm z-10 shrink-0">
                 <span class="text-slate-500 dark:text-gray-400 font-mono">main.py</span>
                 
@@ -460,7 +452,25 @@ function stopConsoleResize() {
 
              <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex justify-between items-center shrink-0">
                <span>运行结果</span> <!-- Console Output -->
-               <button @click="(stdout = [], stderr = [])" class="hover:text-indigo-600 dark:hover:text-white transition-colors">清空</button> <!-- Clear -->
+               
+               <div class="flex items-center gap-3">
+                  <button 
+                    @click="handleRunCodeAutoMark"
+                    :disabled="isLoading || isExecuting"
+                    class="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg v-if="isExecuting" class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span v-else>▶</span>
+                    <span>运行</span>
+                  </button>
+                  
+                  <span class="text-slate-300 dark:text-slate-600">|</span>
+
+                  <button @click="(stdout = [], stderr = [])" class="hover:text-red-500 dark:hover:text-red-400 transition-colors">清空</button> <!-- Clear -->
+               </div>
              </div>
              <div class="flex-1 p-4 text-sm overflow-y-auto space-y-1 bg-white dark:bg-[#0d0d0d]">
                <div v-for="(line, i) in stdout" :key="'out-'+i" class="text-slate-700 dark:text-emerald-400 break-words border-b border-slate-50 dark:border-slate-800/50 pb-0.5 last:border-0">{{ line }}</div>
