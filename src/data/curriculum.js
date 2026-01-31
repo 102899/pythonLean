@@ -50,6 +50,22 @@ if age > 18:
 print("已经跳出 if 代码块了。")`,
         quiz: [
           {
+            type: 'code',
+            question: "请编写代码：使用 print 函数输出 Hello Python",
+            initialCode: "# Write your code here\n",
+            expectedOutput: "Hello Python",
+            validationType: 'output',
+            standardCode: "print('Hello Python')"
+          },
+          {
+            type: 'code',
+            question: "请编写代码：写一个单行注释，内容随意",
+            initialCode: "",
+            validationType: 'keyword',
+            requiredKeywords: ['#'],
+            standardCode: "# 这是一个注释"
+          },
+          {
             type: 'choice',
             question: "Python 使用什么符号来表示单行注释？",
             options: ["//", "#", "<!-- -->", "/* */"],

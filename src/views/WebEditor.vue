@@ -1,46 +1,18 @@
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount, watch, shallowRef, nextTick } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch, shallowRef, nextTick, reactive } from 'vue'
 import { usePyodide } from '../composables/usePyodide'
-import * as monaco from 'monaco-editor'
-import 'monaco-editor/min/vs/editor/editor.main.css'
-
-// --- Monaco Worker Configuration for Vite ---
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
-
-self.MonacoEnvironment = {
-  getWorker(_, label) {
-    if (label === 'json') {
-      return new jsonWorker()
-    }
-    if (label === 'css' || label === 'scss' || label === 'less') {
-      return new cssWorker()
-    }
-    if (label === 'html' || label === 'handlebars' || label === 'razor') {
-      return new htmlWorker()
-    }
-    if (label === 'typescript' || label === 'javascript') {
-      return new tsWorker()
-    }
-    return new editorWorker()
-  }
-}
-// ---------------------------------------------
-
-const code = ref(`print("Hello, World!")\n\n# Python list comprehension is like .map() in JS\nnumbers = [1, 2, 3, 4]\ndoubled = [n * 2 for n in numbers]\nprint(f"Doubled: {doubled}")`)
-const { runPython, stdout, stderr, isReady, isLoading } = usePyodide()
+import MonacoEditor from '../components/MonacoEditor.vue'
+import MonacoDiffEditor from '../components/MonacoDiffEditor.vue'
 import { isDark } from '../composables/useTheme'
-
-const isExecuting = ref(false)
-const editorContainer = ref(null)
-const editorInstance = shallowRef(null) // Use shallowRef for non-Vue objects like Monaco
-
-import { categories } from '../data/curriculum'
+import { categories as rawCategories } from '../data/curriculum'
 import { useProgress } from '../composables/useProgress'
 
+// Core State
+const code = ref(`print("Hello, World!")\n\n# Python list comprehension is like .map() in JS\nnumbers = [1, 2, 3, 4]\ndoubled = [n * 2 for n in numbers]\nprint(f"Doubled: {doubled}")`)
+const { runPython, stdout, stderr, isReady, isLoading } = usePyodide()
+const isExecuting = ref(false)
+
+// Progress Composables
 const { 
   markComplete, 
   toggleComplete,
@@ -51,42 +23,12 @@ const {
   progress 
 } = useProgress()
 
-// Computed for current chapter status
-const isCurrentStepComplete = computed(() => {
-  if (!activeChapter.value) return false
-  return isStepComplete(activeChapter.value.id, activeStep.value)
-})
-
-function handleStepToggle() {
-  if (!activeChapter.value) return
-  toggleComplete(activeChapter.value.id, activeStep.value)
-}
-
-function handleNextStep() {
-  // Auto-mark current step as complete when proceeding
-  if (activeChapter.value) {
-    if (activeStep.value === 'learn') markComplete(activeChapter.value.id, 'learn')
-    // Don't auto-mark practice on 'next' click, let them run it.
-  }
-  
-  if (activeStep.value === 'learn') activeStep.value = 'practice'
-  else if (activeStep.value === 'practice') activeStep.value = 'quiz'
-}
-
-function handleRunCodeAutoMark() {
-    handleRun()
-    // Auto-mark practice as complete upon running code
-    if (activeChapter.value && activeStep.value === 'practice') {
-        markComplete(activeChapter.value.id, 'practice')
-    }
-}
+// Navigation State
+const categories = reactive(rawCategories)
 const activeCategoryId = ref('basics')
 const activeCategory = computed(() => categories.find(c => c.id === activeCategoryId.value))
-
 const activeChapterIndex = ref(0)
 const activeChapter = computed(() => activeCategory.value.chapters[activeChapterIndex.value])
-
-// Learning Flow State
 const activeStep = ref('learn') // 'learn', 'practice', 'quiz'
 const steps = [
   { id: 'learn', label: '1. 知识剖析', icon: '📚' },
@@ -94,43 +36,59 @@ const steps = [
   { id: 'quiz', label: '3. 检验考核', icon: '📝' }
 ]
 
-// Quiz State
+// Computed
+const isCurrentStepComplete = computed(() => {
+  if (!activeChapter.value) return false
+  return isStepComplete(activeChapter.value.id, activeStep.value)
+})
+
+// Navigation Handlers
+function handleStepToggle() {
+  if (!activeChapter.value) return
+  toggleComplete(activeChapter.value.id, activeStep.value)
+}
+
+function handleNextStep() {
+  if (activeChapter.value) {
+    if (activeStep.value === 'learn') markComplete(activeChapter.value.id, 'learn')
+  }
+  
+  if (activeStep.value === 'learn') activeStep.value = 'practice'
+  else if (activeStep.value === 'practice') activeStep.value = 'quiz'
+}
+
+async function handleRun() {
+  if (isExecuting.value) return
+  isExecuting.value = true
+  try {
+    await runPython(code.value)
+  } catch (e) {
+    // Error handled in composable
+  } finally {
+    isExecuting.value = false
+  }
+}
+
+function handleRunCodeAutoMark() {
+    handleRun()
+    if (activeChapter.value && activeStep.value === 'practice') {
+        markComplete(activeChapter.value.id, 'practice')
+    }
+}
+
+// --- Quiz Logic ---
 const quizAnswers = ref({})
 const quizSubmitted = ref(false)
 const quizScore = ref(0)
-
-// Watch for category changes to reset chapter and step
-watch(activeCategoryId, () => {
-  activeChapterIndex.value = 0
-  activeStep.value = 'learn'
-  resetQuiz()
-})
-
-// Watch for chapter changes to update code and reset quiz
-watch(activeChapter, (newChapter) => {
-  if (newChapter && newChapter.code) {
-    const newCode = newChapter.code.trim()
-    code.value = newCode
-    // Update editor content if it exists
-    if (editorInstance.value && editorInstance.value.getValue() !== newCode) {
-      editorInstance.value.setValue(newCode)
-    }
-  }
-  resetQuiz()
-  activeStep.value = 'learn'
-}, { immediate: true })
-
-// Watch code changes to sync with editor if changed externally
-watch(code, (newValue) => {
-  if (editorInstance.value && editorInstance.value.getValue() !== newValue) {
-     editorInstance.value.setValue(newValue)
-  }
-})
+const diffVisible = ref({}) // Track which diffs are open
+const revealedHints = ref({}) // Track which hints are revealed
 
 function resetQuiz() {
   quizAnswers.value = {}
   quizSubmitted.value = false
   quizScore.value = 0
+  diffVisible.value = {}
+  revealedHints.value = {}
 }
 
 function submitQuiz() {
@@ -140,8 +98,10 @@ function submitQuiz() {
   const total = activeChapter.value.quiz.length
   
   activeChapter.value.quiz.forEach((q, idx) => {
-    if (quizAnswers.value[idx] === q.correctAnswer) {
-      score++
+    if (q.type === 'code') {
+         if (quizAnswers.value[idx] === 'passed') score++
+    } else {
+        if (quizAnswers.value[idx] === q.correctAnswer) score++
     }
   })
   
@@ -153,91 +113,125 @@ function submitQuiz() {
   }
 }
 
-// Monaco Initialization
-function initEditor() {
-  if (!editorContainer.value) {
-      console.warn('Implementation Error: Editor container not found.')
-      return
-  }
+async function runQuizCode(question, index, userCode) {
+    stdout.value = []
+    stderr.value = []
+    
+    if (!userCode || !userCode.trim()) return
 
-  // Dispose previous instance if exists
-  if (editorInstance.value) {
-    editorInstance.value.dispose()
-  }
+    // Always run the code to check for syntax errors and show output
+    await runPython(userCode)
+    
+    let passed = false
+    
+    if (question.validationType === 'keyword') {
+        // Keyword Validation Strategy
+        const keywords = question.requiredKeywords || []
+        // Simple check: does the code contain the keyword?
+        // Note: This is a basic check. Real keyword checking might need tokenization to avoid matching strings/comments, 
+        // but for this level (comments/print), simple includes is sufficient.
+        passed = keywords.every(kw => userCode.includes(kw))
+    } else {
+        // Default: Output Validation Strategy
+        const outputString = stdout.value.join('\n')
+        // Check if output includes expected string
+        if (question.expectedOutput) {
+             passed = outputString.includes(question.expectedOutput)
+        }
+    }
 
-  console.log('Initializing Monaco Editor...')
-  try {
-      editorInstance.value = monaco.editor.create(editorContainer.value, {
-        value: code.value,
-        language: 'python',
-        theme: isDark.value ? 'vs-dark' : 'vs',
-        automaticLayout: true,
-        minimap: { enabled: false }, 
-        fontSize: 14,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        scrollBeyondLastLine: false,
-        padding: { top: 16, bottom: 16 }
-      })
-      console.log('Monaco Editor initialized successfully.')
-  } catch (error) {
-      console.error('Monaco Editor failed to initialize:', error)
-  }
-
-  // Two-way binding
-  editorInstance.value.onDidChangeModelContent(() => {
-    code.value = editorInstance.value.getValue()
-  })
+    if (passed) {
+        quizAnswers.value[index] = 'passed'
+        // Auto-reveal hint if passed
+        revealedHints.value[index] = true
+    } else {
+        quizAnswers.value[index] = 'failed'
+    }
+    
+    // Auto-open diff view if standard code is available, to improve UX
+    if (question.standardCode) {
+        diffVisible.value[index] = true
+    }
 }
 
-// Watch Theme Changes
-watch(isDark, (newVal) => {
-  if (editorInstance.value) {
-    monaco.editor.setTheme(newVal ? 'vs-dark' : 'vs')
-  }
+// Watchers
+watch(activeCategoryId, () => {
+  activeChapterIndex.value = 0
+  activeStep.value = 'learn'
+  resetQuiz()
 })
 
-// Watch editorContainer to init editor when DOM is ready (handles transitions)
-watch(editorContainer, (newEl) => {
-  if (newEl) {
-    // DOM Element is ready, initialize editor
-    initEditor()
+watch(activeChapter, (newChapter) => {
+  if (newChapter && newChapter.code) {
+    code.value = newChapter.code.trim()
   }
-})
+  resetQuiz()
+  activeStep.value = 'learn'
+  stdout.value = []
+  stderr.value = []
+}, { immediate: true })
 
-// Watch activeStep only to cleanup if needed, or handle other logic. 
-// Editor init is now handled by the editorContainer watcher.
-watch(activeStep, async (newStep) => {
-  if (newStep !== 'practice') {
-     // If leaving practice, maybe dispose? (onBeforeUnmount handles component destruction, 
-     // but v-if removal doesn't trigger onBeforeUnmount for the parent, only the element.
-     // Actually, we can check if we should dispose.
-     // But initEditor handles disposal of existing instance.
-  }
-})
+// --- Layout Resizing Logic ---
 
-onMounted(() => {
-  // If starting in practice mode
-  if (activeStep.value === 'practice') {
-     initEditor()
-  }
-})
+// Sidebar
+const sidebarWidth = ref(260)
+const isSidebarResizing = ref(false)
 
-onBeforeUnmount(() => {
-  if (editorInstance.value) {
-    editorInstance.value.dispose()
-  }
-})
+function startSidebarResize(e) {
+  isSidebarResizing.value = true
+  document.addEventListener('mousemove', handleSidebarResize)
+  document.addEventListener('mouseup', stopSidebarResize)
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+}
 
-async function handleRun() {
-  if (isExecuting.value) return
-  isExecuting.value = true
-  try {
-    await runPython(code.value)
-  } catch (e) {
-    // Error already handled in composable's stderr
-  } finally {
-    isExecuting.value = false
-  }
+function handleSidebarResize(e) {
+  if (!isSidebarResizing.value) return
+  let newWidth = e.clientX
+  const MIN_WIDTH = 200
+  const MAX_WIDTH = 500
+  if (newWidth < MIN_WIDTH) newWidth = MIN_WIDTH
+  if (newWidth > MAX_WIDTH) newWidth = MAX_WIDTH
+  sidebarWidth.value = newWidth
+}
+
+function stopSidebarResize() {
+  isSidebarResizing.value = false
+  document.removeEventListener('mousemove', handleSidebarResize)
+  document.removeEventListener('mouseup', stopSidebarResize)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+}
+
+// Console
+const consoleWidth = ref(400)
+const isConsoleResizing = ref(false)
+
+function startConsoleResize(e) {
+  isConsoleResizing.value = true
+  document.addEventListener('mousemove', handleConsoleResize)
+  document.addEventListener('mouseup', stopConsoleResize)
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+}
+
+function handleConsoleResize(e) {
+  if (!isConsoleResizing.value) return
+  const windowWidth = document.body.clientWidth
+  let newWidth = windowWidth - e.clientX
+  const MIN_C_WIDTH = 200
+  const MAX_C_WIDTH = 800
+  if (newWidth < MIN_C_WIDTH) newWidth = MIN_C_WIDTH
+  if (newWidth > MAX_C_WIDTH) newWidth = MAX_C_WIDTH
+  consoleWidth.value = newWidth
+}
+
+function stopConsoleResize() {
+  isConsoleResizing.value = false
+  document.removeEventListener('mousemove', handleConsoleResize)
+  document.removeEventListener('mouseup', stopConsoleResize)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
 }
 </script>
 
@@ -303,8 +297,6 @@ async function handleRun() {
            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Ready
         </div>
         
-        <!-- Theme Toggle Removed -->
-
         <button 
           v-if="activeStep === 'practice'"
           @click="handleRunCodeAutoMark"
@@ -323,8 +315,11 @@ async function handleRun() {
     <!-- Main Layout -->
     <div class="flex-1 flex overflow-hidden">
       <!-- Sidebar / Lessons (Level 2) -->
-      <aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col hidden md:flex shrink-0">
-         <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+      <aside 
+        class="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col hidden md:flex shrink-0 relative group/sidebar"
+        :style="{ width: sidebarWidth + 'px' }"
+      >
+         <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 shrink-0">
            <h2 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ activeCategory.title }}</h2>
            <span class="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 font-mono">{{ activeCategory.chapters.length }} 节</span>
          </div>
@@ -357,6 +352,13 @@ async function handleRun() {
              </div>
            </div>
          </div>
+         
+         <!-- Resize Handle -->
+         <div 
+            class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500/50 active:bg-indigo-600 transition-colors z-20 group-hover/sidebar:bg-slate-200/50 dark:group-hover/sidebar:bg-slate-700/50"
+            :class="{ 'bg-indigo-600': isSidebarResizing }"
+            @mousedown.prevent="startSidebarResize"
+         ></div>
       </aside>
 
       <!-- Content Area (Dynamic based on activeStep) -->
@@ -411,11 +413,27 @@ async function handleRun() {
                 </div>
              </div>
              
-             <!-- Monaco Editor Container with Explicit Style -->
-             <div ref="editorContainer" class="flex-1 w-full h-full overflow-hidden" style="min-height: 400px; display: block;"></div>
+             <!-- Monaco Editor Component -->
+             <div class="flex-1 w-full h-full overflow-hidden" style="min-height: 400px; display: block;">
+                <MonacoEditor 
+                  v-model="code"
+                  :theme="isDark ? 'vs-dark' : 'vs'"
+                  language="python"
+                />
+             </div>
           </div>
           
-          <div class="lg:w-[400px] bg-white dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800 h-[40vh] lg:h-auto font-mono">
+          <div 
+             :style="{ width: consoleWidth + 'px' }"
+             class="lg:w-auto bg-white dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800 h-[40vh] lg:h-auto font-mono relative shrink-0"
+          >
+             <!-- Console Resize Handle (Left) -->
+             <div 
+                class="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-indigo-500/50 active:bg-indigo-600 transition-colors z-20 opacity-0 hover:opacity-100"
+                :class="{ 'bg-indigo-600 opacity-100': isConsoleResizing }"
+                @mousedown.prevent="startConsoleResize"
+             ></div>
+
              <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex justify-between items-center shrink-0">
                <span>运行结果</span> <!-- Console Output -->
                <button @click="(stdout = [], stderr = [])" class="hover:text-indigo-600 dark:hover:text-white transition-colors">清空</button> <!-- Clear -->
@@ -431,96 +449,201 @@ async function handleRun() {
         </div>
 
         <!-- MODE 3: QUIZ -->
-        <div v-else-if="activeStep === 'quiz'" key="quiz" class="flex-1 overflow-y-auto p-8 max-w-3xl mx-auto w-full">
-           <div class="flex items-center justify-between mb-8">
-             <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-               <span class="text-3xl">📝</span> 章节考核: {{ activeChapter.title }}
-             </h2>
-             
-             <button @click="handleStepToggle" 
-               class="px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 text-sm"
-               :class="isCurrentStepComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'">
-               <span>{{ isCurrentStepComplete ? '✓ 已完成' : '○ 标记完成' }}</span>
-             </button>
+        <div v-else-if="activeStep === 'quiz'" key="quiz" class="flex-1 flex flex-col min-h-0 bg-slate-50/50 dark:bg-[#0a0a0a] relative">
+           
+           <!-- LAYER 1: Fixed Background & Visual Guides (Non-Scrolling) -->
+           <div class="absolute inset-0 z-0 flex justify-between pointer-events-none overflow-hidden">
+               <!-- Background Pattern -->
+               <div class="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]" 
+                    style="background-image: repeating-linear-gradient(45deg, #6366f1 0, #6366f1 1px, transparent 0, transparent 50%); background-size: 10px 10px;">
+               </div>
+
+               <!-- Left Guide Area -->
+               <div class="flex-1 hidden xl:flex items-center justify-center max-w-[calc(50%-28rem)]">
+                    <span class="font-black text-slate-200 dark:text-slate-800 -rotate-90 whitespace-nowrap tracking-widest opacity-60 select-none"
+                          style="font-size: clamp(2rem, 4vw, 6rem);">
+                        SCROLL AREA
+                    </span>
+               </div>
+               
+               <!-- Spacer for Content Area (56rem/896px) -->
+               <div class="w-full max-w-4xl shrink-0"></div>
+
+               <!-- Right Guide Area -->
+               <div class="flex-1 hidden xl:flex items-center justify-center max-w-[calc(50%-28rem)]">
+                    <span class="font-black text-slate-200 dark:text-slate-800 rotate-90 whitespace-nowrap tracking-[0.4em] opacity-60 select-none"
+                          style="font-size: clamp(2rem, 4vw, 6rem);">
+                        上下滑动区域
+                    </span>
+               </div>
            </div>
 
+           <!-- LAYER 2: Scrollable Content -->
+           <div class="flex-1 overflow-y-auto w-full relative z-10 scroll-smooth">
+               <div class="max-w-4xl mx-auto p-8 min-h-full bg-white dark:bg-[#1e1e1e] border-x border-slate-100 dark:border-slate-800 shadow-sm">
+                   <div class="flex items-center justify-between mb-8">
+                     <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                       <span class="text-3xl">📝</span> 章节考核: {{ activeChapter.title }}
+                     </h2>
+                     
+                     <button @click="handleStepToggle" 
+                       class="px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 text-sm"
+                       :class="isCurrentStepComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'">
+                       <span>{{ isCurrentStepComplete ? '✓ 已完成' : '○ 标记完成' }}</span>
+                     </button>
+                   </div>
 
-           <div v-if="activeChapter.quiz && activeChapter.quiz.length > 0">
-             
-             <!-- Score Card -->
-             <div v-if="quizSubmitted" class="mb-8 p-6 rounded-2xl border flex items-center justify-between shadow-lg"
-               :class="quizScore >= 60 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-500/30'">
-               <div>
-                  <div class="text-xs uppercase tracking-wider font-bold mb-1" :class="quizScore >= 60 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-                    考核得分
-                  </div>
-                  <div class="text-4xl font-bold text-slate-900 dark:text-white">{{ quizScore }}<span class="text-lg text-slate-400 dark:text-slate-500">/100</span></div>
+
+                   <div v-if="activeChapter.quiz && activeChapter.quiz.length > 0">
+                     
+                     <!-- Score Card -->
+                     <div v-if="quizSubmitted" class="mb-8 p-6 rounded-2xl border flex items-center justify-between shadow-lg"
+                       :class="quizScore >= 60 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-500/30'">
+                       <div>
+                          <div class="text-xs uppercase tracking-wider font-bold mb-1" :class="quizScore >= 60 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
+                            考核得分
+                          </div>
+                          <div class="text-4xl font-bold text-slate-900 dark:text-white">{{ quizScore }}<span class="text-lg text-slate-400 dark:text-slate-500">/100</span></div>
+                       </div>
+                       <div class="text-right">
+                          <div class="text-lg font-bold" :class="quizScore >= 60 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'">
+                            {{ quizScore >= 60 ? '恭喜通过！🎉' : '还需要再接再厉哦 💪' }}
+                          </div>
+                          <button @click="resetQuiz" class="text-xs underline mt-2 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white">重考</button>
+                       </div>
+                     </div>
+
+                     <!-- Questions -->
+                     <div class="space-y-6">
+                       <div v-for="(q, idx) in activeChapter.quiz" :key="idx" class="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                         <div class="flex gap-4 mb-4">
+                           <span class="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-xs font-bold px-2.5 py-1.5 rounded-lg h-fit shadow-inner">Q{{ idx + 1 }}</span>
+                           <h3 class="font-bold text-lg leading-snug text-slate-800 dark:text-slate-200">{{ q.question }}</h3>
+                         </div>
+
+                         <div class="space-y-3 pl-2">
+                           <template v-if="q.type === 'choice' || q.type === 'boolean'">
+                             <label v-for="option in q.options" :key="option" 
+                               class="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group"
+                               :class="[
+                                 quizSubmitted 
+                                   ? (option === q.correctAnswer 
+                                       ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 dark:border-emerald-500' 
+                                       : (quizAnswers[idx] === option 
+                                           ? 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-500' 
+                                           : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-50'))
+                                   : (quizAnswers[idx] === option 
+                                       ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-700 dark:text-indigo-300' 
+                                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 text-slate-600 dark:text-slate-300')
+                               ]">
+                               <input type="radio" :name="'q'+idx" :value="option" v-model="quizAnswers[idx]" :disabled="quizSubmitted" class="hidden">
+                               <span class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                                 :class="[
+                                   quizAnswers[idx] === option 
+                                     ? 'border-indigo-500 bg-indigo-500 text-white' 
+                                     : 'border-slate-300 dark:border-slate-500 text-transparent group-hover:border-indigo-400'
+                                 ]">
+                                 <span class="w-2 h-2 rounded-full bg-current"></span>
+                               </span>
+                               <span class="font-medium">{{ option }}</span>
+                               <span v-if="quizSubmitted && option === q.correctAnswer" class="ml-auto text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded">✓ 正确答案</span>
+                             </label>
+                           </template>
+                           <template v-else-if="q.type === 'code'">
+                                <div class="w-full h-64 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-3">
+                                   <MonacoEditor 
+                                      v-model="q.initialCode"
+                                      :theme="isDark ? 'vs-dark' : 'vs'"
+                                      language="python"
+                                   />
+                                </div>
+                                <div class="flex items-center justify-between flex-wrap gap-2">
+                                    <!-- Hints / Requirements Area -->
+                                    <div class="flex-1 min-w-[200px]">
+                                        <div 
+                                            @click="revealedHints[idx] = true"
+                                            class="text-xs text-slate-500 transition-all duration-300 relative group cursor-pointer border border-transparent rounded py-1 px-2 -ml-2"
+                                            :class="{ 
+                                                'filter blur-sm opacity-50 hover:blur-none hover:opacity-100': !revealedHints[idx] && quizAnswers[idx] !== 'passed',
+                                                'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700': !revealedHints[idx] && quizAnswers[idx] !== 'passed'
+                                            }"
+                                        >
+                                            <div v-if="!revealedHints[idx] && quizAnswers[idx] !== 'passed'" class="absolute inset-0 flex items-center justify-center z-10 font-bold text-slate-400 group-hover:hidden">
+                                                👁️ 点击查看要求与预期输出
+                                            </div>
+                                            
+                                            <div :class="{ 'opacity-20 group-hover:opacity-100': !revealedHints[idx] && quizAnswers[idx] !== 'passed' }">
+                                                <span v-if="q.validationType === 'keyword'">要求: 包含关键代码 <code v-for="kw in q.requiredKeywords" :key="kw" class="bg-slate-100 dark:bg-slate-900 px-1 rounded mx-0.5 text-indigo-600 dark:text-indigo-400">{{ kw }}</code></span>
+                                                <span v-else>预期输出: <code class="bg-slate-100 dark:bg-slate-900 px-1 rounded text-indigo-600 dark:text-indigo-400">{{ q.expectedOutput }}</code></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-2">
+                                        <!-- Status Icons -->
+                                        <span v-if="quizAnswers[idx] === 'passed'" class="text-emerald-500 text-sm font-bold flex items-center gap-1">
+                                            ✓ 测试通过
+                                        </span>
+                                        <span v-else-if="quizAnswers[idx] === 'failed'" class="text-red-500 text-sm font-bold flex items-center gap-1">
+                                            ✕ 结果不匹配
+                                        </span>
+                                        
+                                        <!-- Compare Button -->
+                                        <button 
+                                            v-if="q.standardCode"
+                                            @click="diffVisible[idx] = !diffVisible[idx]"
+                                            class="px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold rounded flex items-center gap-1 transition-colors text-slate-600 dark:text-slate-300">
+                                            {{ diffVisible[idx] ? '收起对比' : '与答案对比' }}
+                                        </button>
+
+                                        <!-- Run Button (Always enabled unless loading) -->
+                                        <button 
+                                            @click="runQuizCode(q, idx, q.initialCode)"
+                                            :disabled="isLoading"
+                                            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded flex items-center gap-1 transition-colors">
+                                            <span v-if="isLoading">Running...</span>
+                                            <span v-else>▶ 运行验证</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Diff View -->
+                                <div v-if="diffVisible[idx]" class="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                                    <div class="mb-2 text-xs font-bold text-slate-500 flex justify-between">
+                                        <span>标准答案 (左) vs 你的代码 (右)</span>
+                                    </div>
+                                    <div class="h-64 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                        <MonacoDiffEditor
+                                            :original="q.standardCode"
+                                            :modified="q.initialCode"
+                                            :theme="isDark ? 'vs-dark' : 'vs'"
+                                            language="python"
+                                        />
+                                    </div>
+                                </div>
+                           </template>
+                         </div>
+                       </div>
+
+                       <div class="mt-10 py-8 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                         <button v-if="!quizSubmitted" @click="submitQuiz" 
+                           :disabled="Object.keys(quizAnswers).length < activeChapter.quiz.length"
+                           class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl font-bold shadow-xl shadow-indigo-500/20 text-lg transition-all hover:-translate-y-1">
+                           提交答案
+                         </button>
+                       </div>
+                   </div>
+                   </div>
+
+                   <div v-else class="text-center py-20 text-slate-400">
+                     <div class="text-4xl mb-4">🚧</div>
+                     本章考核题目正在生成中...
+                   </div>
                </div>
-               <div class="text-right">
-                  <div class="text-lg font-bold" :class="quizScore >= 60 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'">
-                    {{ quizScore >= 60 ? '恭喜通过！🎉' : '还需要再接再厉哦 💪' }}
-                  </div>
-                  <button @click="resetQuiz" class="text-xs underline mt-2 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white">重考</button>
-               </div>
-             </div>
-
-             <!-- Questions -->
-             <div class="space-y-6">
-               <div v-for="(q, idx) in activeChapter.quiz" :key="idx" class="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                 <div class="flex gap-4 mb-4">
-                   <span class="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-xs font-bold px-2.5 py-1.5 rounded-lg h-fit shadow-inner">Q{{ idx + 1 }}</span>
-                   <h3 class="font-bold text-lg leading-snug text-slate-800 dark:text-slate-200">{{ q.question }}</h3>
-                 </div>
-
-                 <div class="space-y-3 pl-2">
-                   <template v-if="q.type === 'choice' || q.type === 'boolean'">
-                     <label v-for="option in q.options" :key="option" 
-                       class="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group"
-                       :class="[
-                         quizSubmitted 
-                           ? (option === q.correctAnswer 
-                               ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 dark:border-emerald-500' 
-                               : (quizAnswers[idx] === option 
-                                   ? 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-500' 
-                                   : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-50'))
-                           : (quizAnswers[idx] === option 
-                               ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-700 dark:text-indigo-300' 
-                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 text-slate-600 dark:text-slate-300')
-                       ]">
-                       <input type="radio" :name="'q'+idx" :value="option" v-model="quizAnswers[idx]" :disabled="quizSubmitted" class="hidden">
-                       <span class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                         :class="[
-                           quizAnswers[idx] === option 
-                             ? 'border-indigo-500 bg-indigo-500 text-white' 
-                             : 'border-slate-300 dark:border-slate-500 text-transparent group-hover:border-indigo-400'
-                         ]">
-                         <span class="w-2 h-2 rounded-full bg-current"></span>
-                       </span>
-                       <span class="font-medium">{{ option }}</span>
-                       <span v-if="quizSubmitted && option === q.correctAnswer" class="ml-auto text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded">✓ 正确答案</span>
-                     </label>
-                   </template>
-                 </div>
-               </div>
-             </div>
-
-             <div class="mt-10 py-8 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-               <button v-if="!quizSubmitted" @click="submitQuiz" 
-                 :disabled="Object.keys(quizAnswers).length < activeChapter.quiz.length"
-                 class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl font-bold shadow-xl shadow-indigo-500/20 text-lg transition-all hover:-translate-y-1">
-                 提交答案
-               </button>
-             </div>
-
-           </div>
-           <div v-else class="text-center py-20 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-             <div class="text-4xl mb-4">🚧</div>
-             <h3 class="text-xl font-bold text-slate-400">本章节尚未配置考核题目</h3>
-             <p class="text-slate-500 mt-2">开发者正在努力编写中...</p>
            </div>
         </div>
-
         </transition>
+      
       </main>
     </div>
   </div>
@@ -532,9 +655,13 @@ async function handleRun() {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.fade-slide-enter-from,
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateX(10px);
+  transform: translateX(-20px);
 }
 </style>
