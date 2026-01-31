@@ -55,7 +55,8 @@ print("已经跳出 if 代码块了。")`,
             initialCode: "# Write your code here\n",
             expectedOutput: "Hello Python",
             validationType: 'output',
-            standardCode: "print('Hello Python')"
+            standardCode: "# Write your code here\nprint('Hello Python')",
+            explanation: "Python 使用 `print()` 函数将内容输出到控制台。注意字符串需要用引号 (单/双引号均可) 包裹。"
           },
           {
             type: 'code',
@@ -63,7 +64,8 @@ print("已经跳出 if 代码块了。")`,
             initialCode: "",
             validationType: 'keyword',
             requiredKeywords: ['#'],
-            standardCode: "# 这是一个注释"
+            standardCode: "# 这是一个注释",
+            explanation: "Python 使用井号 `#` 开头来表示单行注释。解释器会忽略 `#` 之后的所有内容。"
           },
           {
             type: 'choice',
@@ -98,30 +100,150 @@ print("已经跳出 if 代码块了。")`,
         ]
       },
       {
-        id: 'basics-02-env-tools',
-        title: "环境与工具：Node/NPM 的对应关系",
-        learnContent: "<p>本节内容待补充...</p>",
-        code: `# Node.js 生态 vs Python 生态对照... (省略，同前)`,
-        quiz: []
-      },
-      {
-        id: 'basics-03-core-syntax',
+        id: 'basics-02-core-syntax',
         title: "核心语法：变量、类型与 F-Strings",
-        code: `# 变量与类型
-x = 10          # int
-y = 3.14        # float
-z = "Python"    # str
-is_active = True # bool (注意大写 T)
+        learnContent: `
+          <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">JS &rarr; Python：核心语法对比速查</h3>
+          
+          <div class="space-y-8">
+            
+            <!-- 1. 变量与布尔值 -->
+            <section>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded text-xs font-bold">VS</span>
+                    <h4 class="font-bold text-slate-700 dark:text-slate-200">1. 变量声明与布尔值</h4>
+                </div>
+                <div class="grid grid-cols-2 gap-0 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <div class="bg-slate-50 dark:bg-[#1e1e1e] p-3 border-r border-slate-200 dark:border-slate-700">
+                        <div class="text-xs text-slate-400 mb-1 font-mono">JavaScript</div>
+                        <pre class="text-sm font-mono text-slate-600 dark:text-slate-300"><code>let isActive = <span class="text-red-500">true</span>;
+const uid = <span class="text-red-500">null</span>;</code></pre>
+                    </div>
+                    <div class="bg-indigo-50/50 dark:bg-indigo-900/10 p-3">
+                        <div class="text-xs text-indigo-400 mb-1 font-mono">Python</div>
+                        <pre class="text-sm font-mono text-slate-800 dark:text-white"><code>is_active = <span class="text-emerald-600 font-bold">True</span>
+uid = <span class="text-emerald-600 font-bold">None</span></code></pre>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 p-2 rounded">
+                    <strong>💡 结论：</strong> Python 不需要 <code>let/const</code>；<code class="text-emerald-600">True/False/None</code> 首字母必须大写。
+                </p>
+            </section>
 
-# F-Strings (Template Literals in JS)
-# JS: \`Hello \${z}\`
-msg = f"Hello {z}, x + y = {x + y}"
-print(msg)
+            <!-- 2. 字符串模版 -->
+            <section>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded text-xs font-bold">VS</span>
+                    <h4 class="font-bold text-slate-700 dark:text-slate-200">2. 字符串插值 (F-Strings)</h4>
+                </div>
+                <div class="grid grid-cols-2 gap-0 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <div class="bg-slate-50 dark:bg-[#1e1e1e] p-3 border-r border-slate-200 dark:border-slate-700">
+                        <div class="text-xs text-slate-400 mb-1 font-mono">JavaScript</div>
+                        <pre class="text-sm font-mono text-slate-600 dark:text-slate-300"><code>const msg = <span class="text-red-500">\`Hello \${name}\`</span>;</code></pre>
+                    </div>
+                    <div class="bg-indigo-50/50 dark:bg-indigo-900/10 p-3">
+                        <div class="text-xs text-indigo-400 mb-1 font-mono">Python</div>
+                        <pre class="text-sm font-mono text-slate-800 dark:text-white"><code>msg = <span class="text-emerald-600 font-bold">f"Hello {name}"</span></code></pre>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 p-2 rounded">
+                    <strong>💡 结论：</strong> 丢掉反引号！只需在引号前加 <code class="text-emerald-600 font-bold">f</code>，花括号内直接写变量。
+                </p>
+            </section>
 
-# 类型转换
-num_str = "123"
-num_int = int(num_str)
-print(num_int + 10)`
+            <!-- 3. 类型转换 -->
+            <section>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded text-xs font-bold">VS</span>
+                    <h4 class="font-bold text-slate-700 dark:text-slate-200">3. 类型转换</h4>
+                </div>
+                <div class="grid grid-cols-2 gap-0 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <div class="bg-slate-50 dark:bg-[#1e1e1e] p-3 border-r border-slate-200 dark:border-slate-700">
+                        <div class="text-xs text-slate-400 mb-1 font-mono">JavaScript</div>
+                        <pre class="text-sm font-mono text-slate-600 dark:text-slate-300"><code>let n = Number("10");
+let s = String(100);</code></pre>
+                    </div>
+                    <div class="bg-indigo-50/50 dark:bg-indigo-900/10 p-3">
+                        <div class="text-xs text-indigo-400 mb-1 font-mono">Python</div>
+                        <pre class="text-sm font-mono text-slate-800 dark:text-white"><code>n = <span class="text-emerald-600 font-bold">int("10")</span>
+s = <span class="text-emerald-600 font-bold">str(100)</span></code></pre>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 p-2 rounded">
+                    <strong>💡 结论：</strong> Python 类型转换函数更简短：<code>int()</code>, <code>str()</code>, <code>float()</code>。
+                </p>
+            </section>
+          </div>
+        `,
+        code: `# 1. 变量定义
+username = "Frontend_Dev"
+level = 99
+is_verified = True  # Python 虽然是动态类型，但 bool 值首字母必须大写
+
+# 2. F-Strings 实战
+# 任务：使用 f-string 拼接出 "User: Frontend_Dev, Verified: True"
+# 不再需要像 JS 那样写 \`User: \${username}...\`
+info = f"User: {username}, Verified: {is_verified}"
+
+print(info)
+
+# 3. 类型转换演示
+score_str = "100"
+# total = score_str + 50      # ❌ 报错！JS 会拼成 "10050"，但 Python 禁止隐式转换
+total = int(score_str) + 50   # ✅ 必须显式转为 int
+print(f"Total Score: {total}")`,
+        quiz: [
+          {
+            type: 'code',
+            question: "请修复代码：修正 JS 风格的布尔值写法，并使用 f-string 输出结果",
+            initialCode: `is_admin = true  # ❌ JS style
+user = "Admin"
+
+# 请修复上面 boolean 错误，并取消下面注释，用 f-string 打印 "Admin access: True"
+# print(...)`,
+            expectedOutput: "Admin access: True",
+            validationType: 'output',
+            standardCode: `is_admin = True  # ❌ JS style
+user = "Admin"
+
+# 请修复上面 boolean 错误，并取消下面注释，用 f-string 打印 "Admin access: True"
+print(f"{user} access: {is_admin}")`,
+            explanation: "1. Python 的布尔值必须首字母大写 (`True` / `False`)。\n2. F-String 语法是 `f\"...{var}...\"`，花括号内直接填变量名。"
+          },
+          {
+            type: 'choice',
+            question: "在 Python 中，如何表示空值 (等同于 JS 的 null)？",
+            options: ["null", "nil", "None", "undefined"],
+            correctAnswer: "None"
+          },
+          {
+            type: 'choice',
+            question: "以下哪个是合法的 Python 布尔值？",
+            options: ["true", "True", "TRUE", "Boolean(1)"],
+            correctAnswer: "True"
+          },
+          {
+            type: 'code',
+            question: "实战：将 float 转换为 int",
+            initialCode: `price = 99.99
+# 请将 price 转换为整数并赋值给 price_int (会向下取整)
+price_int = ?
+print(price_int)`,
+            expectedOutput: "99",
+            validationType: 'output',
+            standardCode: `price = 99.99
+# 请将 price 转换为整数并赋值给 price_int (会向下取整)
+price_int = int(price)
+print(price_int)`,
+            explanation: "Python 是强类型语言，不会自动把 float 转 int (除了数学运算)。使用 `int()` 函数可以显式转换类型，同时会丢弃小数部分（向下取整）。"
+          },
+          {
+            type: 'boolean',
+            question: 'Python 中执行 `print("1" + 1)` 会像 JS 一样输出 "11" 吗？',
+            options: ["会", "不会 (报错)"],
+            correctAnswer: "不会 (报错)"
+          }
+        ]
       }
     ]
   },

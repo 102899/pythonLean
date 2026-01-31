@@ -78,10 +78,12 @@ function handleRunCodeAutoMark() {
 
 // --- Quiz Logic ---
 const quizAnswers = ref({})
+const quizOutputs = ref({}) // Store stdout/stderr per question
 const quizSubmitted = ref(false)
 const quizScore = ref(0)
 const diffVisible = ref({}) // Track which diffs are open
 const revealedHints = ref({}) // Track which hints are revealed
+const quizContainer = ref(null) // Ref for scrollable area
 
 function resetQuiz() {
   quizAnswers.value = {}
@@ -111,41 +113,63 @@ function submitQuiz() {
   if (quizScore.value === 100 && activeChapter.value) {
     markComplete(activeChapter.value.id, 'quiz')
   }
+
+  // Auto-scroll to top to see score
+  nextTick(() => {
+    if (quizContainer.value) {
+      quizContainer.value.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  })
 }
 
 async function runQuizCode(question, index, userCode) {
-    stdout.value = []
-    stderr.value = []
-    
     if (!userCode || !userCode.trim()) return
 
-    // Always run the code to check for syntax errors and show output
-    await runPython(userCode)
-    
-    let passed = false
-    
-    if (question.validationType === 'keyword') {
-        // Keyword Validation Strategy
-        const keywords = question.requiredKeywords || []
-        // Simple check: does the code contain the keyword?
-        // Note: This is a basic check. Real keyword checking might need tokenization to avoid matching strings/comments, 
-        // but for this level (comments/print), simple includes is sufficient.
-        passed = keywords.every(kw => userCode.includes(kw))
-    } else {
-        // Default: Output Validation Strategy
-        const outputString = stdout.value.join('\n')
-        // Check if output includes expected string
-        if (question.expectedOutput) {
-             passed = outputString.includes(question.expectedOutput)
-        }
-    }
+    // Clear previous output for this question
+    quizOutputs.value[index] = null
 
-    if (passed) {
-        quizAnswers.value[index] = 'passed'
-        // Auto-reveal hint if passed
-        revealedHints.value[index] = true
-    } else {
+    // Always run the code to check for syntax errors and show output
+    try {
+        await runPython(userCode)
+        
+        // Capture output snapshot
+        quizOutputs.value[index] = {
+            stdout: [...stdout.value],
+            stderr: [...stderr.value]
+        }
+        
+        let passed = false
+        
+        if (question.validationType === 'keyword') {
+            // Keyword Validation Strategy
+            const keywords = question.requiredKeywords || []
+            passed = keywords.every(kw => userCode.includes(kw))
+        } else {
+            // Default: Output Validation Strategy
+            const outputString = stdout.value.join('\n')
+            // Check if output includes expected string
+            if (question.expectedOutput) {
+                 passed = outputString.includes(question.expectedOutput)
+            }
+        }
+
+        if (passed) {
+             quizAnswers.value[index] = 'passed'
+             // Auto-reveal hint if passed
+             revealedHints.value[index] = true
+        } else {
+             quizAnswers.value[index] = 'failed'
+             // If failed but no stderr, maybe show a hint in output?
+             // Optional: quizOutputs.value[index].stderr.push("Validation failed.") 
+        }
+    } catch (err) {
+        console.error("Quiz execution error:", err)
         quizAnswers.value[index] = 'failed'
+        
+        // Ensure error is visible in local output
+        if (!quizOutputs.value[index]) {
+             quizOutputs.value[index] = { stdout: [], stderr: [] }
+        }
     }
     
     // Auto-open diff view if standard code is available, to improve UX
@@ -479,7 +503,7 @@ function stopConsoleResize() {
            </div>
 
            <!-- LAYER 2: Scrollable Content -->
-           <div class="flex-1 overflow-y-auto w-full relative z-10 scroll-smooth">
+           <div ref="quizContainer" class="flex-1 overflow-y-auto w-full relative z-10 scroll-smooth">
                <div class="max-w-4xl mx-auto p-8 min-h-full bg-white dark:bg-[#1e1e1e] border-x border-slate-100 dark:border-slate-800 shadow-sm">
                    <div class="flex items-center justify-between mb-8">
                      <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -557,6 +581,29 @@ function stopConsoleResize() {
                                       language="python"
                                    />
                                 </div>
+                                
+                                <!-- Inline Console Output -->
+                                <div v-if="quizOutputs[idx]" class="mb-4 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 text-xs font-mono">
+                                    <div class="px-3 py-1.5 bg-slate-800 text-slate-400 border-b border-slate-700 flex justify-between items-center">
+                                        <span>Terminal Output</span>
+                                        <span class="text-[10px] opacity-70">{{ quizOutputs[idx].stderr.length > 0 ? 'Error' : 'Success' }}</span>
+                                    </div>
+                                    <div class="p-3 max-h-40 overflow-y-auto space-y-1">
+                                        <div v-for="(line, i) in quizOutputs[idx].stdout" :key="'out-'+i" class="text-emerald-400 break-words">{{ line }}</div>
+                                        <div v-for="(line, i) in quizOutputs[idx].stderr" :key="'err-'+i" class="text-red-400 break-words">{{ line }}</div>
+                                        <div v-if="quizOutputs[idx].stdout.length === 0 && quizOutputs[idx].stderr.length === 0" class="text-slate-600 italic">No output</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Solution Explanation (Shown after run) -->
+                                <div v-if="quizAnswers[idx] && q.explanation" class="mb-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-lg p-4 animate-fade-in-up">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-lg">💡</span>
+                                        <span class="font-bold text-indigo-700 dark:text-indigo-300 text-sm">解题思路 & 知识点</span>
+                                    </div>
+                                    <div class="text-xs md:text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{{ q.explanation }}</div>
+                                </div>
+
                                 <div class="flex items-center justify-between flex-wrap gap-2">
                                     <!-- Hints / Requirements Area -->
                                     <div class="flex-1 min-w-[200px]">
