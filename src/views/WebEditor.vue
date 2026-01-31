@@ -1,13 +1,42 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch, shallowRef, nextTick } from 'vue'
 import { usePyodide } from '../composables/usePyodide'
+import * as monaco from 'monaco-editor'
+import 'monaco-editor/min/vs/editor/editor.main.css'
+
+// --- Monaco Worker Configuration for Vite ---
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+
+self.MonacoEnvironment = {
+  getWorker(_, label) {
+    if (label === 'json') {
+      return new jsonWorker()
+    }
+    if (label === 'css' || label === 'scss' || label === 'less') {
+      return new cssWorker()
+    }
+    if (label === 'html' || label === 'handlebars' || label === 'razor') {
+      return new htmlWorker()
+    }
+    if (label === 'typescript' || label === 'javascript') {
+      return new tsWorker()
+    }
+    return new editorWorker()
+  }
+}
+// ---------------------------------------------
 
 const code = ref(`print("Hello, World!")\n\n# Python list comprehension is like .map() in JS\nnumbers = [1, 2, 3, 4]\ndoubled = [n * 2 for n in numbers]\nprint(f"Doubled: {doubled}")`)
 const { runPython, stdout, stderr, isReady, isLoading } = usePyodide()
-import { isDark, toggleDark } from '../composables/useTheme'
+import { isDark } from '../composables/useTheme'
 
 const isExecuting = ref(false)
-
+const editorContainer = ref(null)
+const editorInstance = shallowRef(null) // Use shallowRef for non-Vue objects like Monaco
 
 import { categories } from '../data/curriculum'
 import { useProgress } from '../composables/useProgress'
@@ -36,7 +65,8 @@ function handleStepToggle() {
 function handleNextStep() {
   // Auto-mark current step as complete when proceeding
   if (activeChapter.value) {
-    markComplete(activeChapter.value.id, activeStep.value)
+    if (activeStep.value === 'learn') markComplete(activeChapter.value.id, 'learn')
+    // Don't auto-mark practice on 'next' click, let them run it.
   }
   
   if (activeStep.value === 'learn') activeStep.value = 'practice'
@@ -70,7 +100,6 @@ const quizSubmitted = ref(false)
 const quizScore = ref(0)
 
 // Watch for category changes to reset chapter and step
-import { watch } from 'vue'
 watch(activeCategoryId, () => {
   activeChapterIndex.value = 0
   activeStep.value = 'learn'
@@ -80,11 +109,23 @@ watch(activeCategoryId, () => {
 // Watch for chapter changes to update code and reset quiz
 watch(activeChapter, (newChapter) => {
   if (newChapter && newChapter.code) {
-    code.value = newChapter.code.trim()
+    const newCode = newChapter.code.trim()
+    code.value = newCode
+    // Update editor content if it exists
+    if (editorInstance.value && editorInstance.value.getValue() !== newCode) {
+      editorInstance.value.setValue(newCode)
+    }
   }
   resetQuiz()
   activeStep.value = 'learn'
 }, { immediate: true })
+
+// Watch code changes to sync with editor if changed externally
+watch(code, (newValue) => {
+  if (editorInstance.value && editorInstance.value.getValue() !== newValue) {
+     editorInstance.value.setValue(newValue)
+  }
+})
 
 function resetQuiz() {
   quizAnswers.value = {}
@@ -112,19 +153,79 @@ function submitQuiz() {
   }
 }
 
-// Data Structure: Tiered Curriculum with Content & Quiz
-// Note: Only populating the first chapter fully for demonstration
+// Monaco Initialization
+function initEditor() {
+  if (!editorContainer.value) {
+      console.warn('Implementation Error: Editor container not found.')
+      return
+  }
 
+  // Dispose previous instance if exists
+  if (editorInstance.value) {
+    editorInstance.value.dispose()
+  }
 
-// Re-injecting the full categories data structure in the next step to ensure integrity if needed, 
-// for now patching the categories definition above was illustrative. 
-// REAL IMPLEMENTATION NOTE: I will use the *existing* assignment in the file but patched with the new fields.
-// Since replace_file_content replaces a block, I need to be careful to match the existing text exactly 
-// or replace the whole data block. 
+  console.log('Initializing Monaco Editor...')
+  try {
+      editorInstance.value = monaco.editor.create(editorContainer.value, {
+        value: code.value,
+        language: 'python',
+        theme: isDark.value ? 'vs-dark' : 'vs',
+        automaticLayout: true,
+        minimap: { enabled: false }, 
+        fontSize: 14,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        scrollBeyondLastLine: false,
+        padding: { top: 16, bottom: 16 }
+      })
+      console.log('Monaco Editor initialized successfully.')
+  } catch (error) {
+      console.error('Monaco Editor failed to initialize:', error)
+  }
+
+  // Two-way binding
+  editorInstance.value.onDidChangeModelContent(() => {
+    code.value = editorInstance.value.getValue()
+  })
+}
+
+// Watch Theme Changes
+watch(isDark, (newVal) => {
+  if (editorInstance.value) {
+    monaco.editor.setTheme(newVal ? 'vs-dark' : 'vs')
+  }
+})
+
+// Watch editorContainer to init editor when DOM is ready (handles transitions)
+watch(editorContainer, (newEl) => {
+  if (newEl) {
+    // DOM Element is ready, initialize editor
+    initEditor()
+  }
+})
+
+// Watch activeStep only to cleanup if needed, or handle other logic. 
+// Editor init is now handled by the editorContainer watcher.
+watch(activeStep, async (newStep) => {
+  if (newStep !== 'practice') {
+     // If leaving practice, maybe dispose? (onBeforeUnmount handles component destruction, 
+     // but v-if removal doesn't trigger onBeforeUnmount for the parent, only the element.
+     // Actually, we can check if we should dispose.
+     // But initEditor handles disposal of existing instance.
+  }
+})
 
 onMounted(() => {
-  // Preload Pyodide
-  // usePyodide().initPyodide()
+  // If starting in practice mode
+  if (activeStep.value === 'practice') {
+     initEditor()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (editorInstance.value) {
+    editorInstance.value.dispose()
+  }
 })
 
 async function handleRun() {
@@ -309,17 +410,15 @@ async function handleRun() {
                    </span>
                 </div>
              </div>
-             <textarea 
-               class="flex-1 w-full bg-transparent text-slate-800 dark:text-gray-300 font-mono p-4 resize-none focus:outline-none leading-relaxed text-sm lg:text-base selection:bg-indigo-500/30 overflow-auto"
-               spellcheck="false"
-               v-model="code"
-             ></textarea>
+             
+             <!-- Monaco Editor Container with Explicit Style -->
+             <div ref="editorContainer" class="flex-1 w-full h-full overflow-hidden" style="min-height: 400px; display: block;"></div>
           </div>
           
           <div class="lg:w-[400px] bg-white dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800 h-[40vh] lg:h-auto font-mono">
              <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex justify-between items-center shrink-0">
-               <span>Console Output</span>
-               <button @click="(stdout = [], stderr = [])" class="hover:text-indigo-600 dark:hover:text-white transition-colors">Clear</button>
+               <span>运行结果</span> <!-- Console Output -->
+               <button @click="(stdout = [], stderr = [])" class="hover:text-indigo-600 dark:hover:text-white transition-colors">清空</button> <!-- Clear -->
              </div>
              <div class="flex-1 p-4 text-sm overflow-y-auto space-y-1 bg-white dark:bg-[#0d0d0d]">
                <div v-for="(line, i) in stdout" :key="'out-'+i" class="text-slate-700 dark:text-emerald-400 break-words border-b border-slate-50 dark:border-slate-800/50 pb-0.5 last:border-0">{{ line }}</div>

@@ -4,12 +4,18 @@ export const categories = [
     id: 'basics',
     title: '基础篇',
     chapters: [
-      { 
+      {
         id: 'basics-01-js-vs-python',
         title: "思维转变：JS 与 Python 的异同",
         learnContent: `
           <h3 class="text-xl font-bold mb-4 text-slate-800 dark:text-white">从 JavaScript 到 Python 的思维跃迁</h3>
           <div class="space-y-4 text-slate-600 dark:text-gray-300">
+            <div class="bg-indigo-50 dark:bg-gray-800/50 p-4 rounded-lg border border-indigo-100 dark:border-white/5">
+              <h4 class="font-bold text-indigo-600 dark:text-indigo-400 mb-2">0. 基础语法：注释与输出</h4>
+              <p class="mb-2"><strong>注释：</strong> JS 使用 <code>//</code>，而 Python 使用 <code>#</code>。代码中的空行是为了可读性，会被 Python 解释器忽略。</p>
+              <p><strong>输出：</strong> JS 使用 <code>console.log()</code>，而 Python 使用 <code>print()</code>。</p>
+            </div>
+            
             <p>作为一名前端开发者，你已经掌握了编程的核心概念。Python 和 JavaScript 在很多方面是相似的，但也有一些关键的区别。</p>
             
             <div class="bg-indigo-50 dark:bg-gray-800/50 p-4 rounded-lg border border-indigo-100 dark:border-white/5">
@@ -28,21 +34,33 @@ export const categories = [
             </div>
           </div>
         `,
-        code: `# 1. Hello World
+        code: `# 1. 打印 Hello World
 print("Hello from Python!")
 
 # 2. 变量声明 (无需 var/let/const)
-name = "Frontend Dev"
+name = "前端工程师"
 age = 25
-print(f"User: {name}, Age: {age}")
+print("用户:", name, ", 年龄:", age)
 
 # 3. 代码块使用缩进 (Indentation) 而不是大括号 {}
 if age > 18:
-    print("Indentation determines scope in Python!")
-    print("Still inside the if block.")
+    print("Python 使用缩进来决定作用域！")
+    print("仍然在 if 代码块内部。")
 
-print("Outside the if block.")`,
+print("已经跳出 if 代码块了。")`,
         quiz: [
+          {
+            type: 'choice',
+            question: "Python 使用什么符号来表示单行注释？",
+            options: ["//", "#", "<!-- -->", "/* */"],
+            correctAnswer: "#"
+          },
+          {
+            type: 'choice',
+            question: "Python 中用于输出信息的函数是？",
+            options: ["console.log()", "print()", "echo()", "System.out.println()"],
+            correctAnswer: "print()"
+          },
           {
             type: 'choice',
             question: "Python 使用什么来界定代码块的作用域？",
@@ -63,14 +81,14 @@ print("Outside the if block.")`,
           }
         ]
       },
-      { 
+      {
         id: 'basics-02-env-tools',
         title: "环境与工具：Node/NPM 的对应关系",
         learnContent: "<p>本节内容待补充...</p>",
         code: `# Node.js 生态 vs Python 生态对照... (省略，同前)`,
         quiz: []
       },
-      { 
+      {
         id: 'basics-03-core-syntax',
         title: "核心语法：变量、类型与 F-Strings",
         code: `# 变量与类型
@@ -95,7 +113,7 @@ print(num_int + 10)`
     id: 'core',
     title: '核心篇',
     chapters: [
-      { 
+      {
         id: 'core-01-data-structures',
         title: "数据结构：列表、字典与集合",
         code: `# 列表 (List) -> JS Arrays
@@ -122,7 +140,7 @@ evens = [n for n in numbers if n % 2 == 0]
 print(f"Doubled: {doubled}")
 print(f"Evens: {evens}")`
       },
-      { 
+      {
         id: 'core-02-functions-scope',
         title: "函数与作用域：def、lambda 与闭包",
         code: `# 函数定义 -> JS function
@@ -146,7 +164,7 @@ def increment():
 increment()
 print(f"Count: {count}")`
       },
-      { 
+      {
         id: 'core-03-oop',
         title: "面向对象编程：类、Self 与继承",
         code: `# 类 (Class)
@@ -178,7 +196,7 @@ print(f"{cat.name} says {cat.speak()}")`
     id: 'advanced',
     title: '进阶篇',
     chapters: [
-      { 
+      {
         id: 'advanced-01-exceptions',
         title: "错误处理与模块：try/except 与 import",
         code: `# 错误处理 -> JS try/catch
@@ -199,7 +217,7 @@ try:
 except ValueError as e:
     print(e)`
       },
-      { 
+      {
         id: 'advanced-02-async',
         title: "异步编程：Event Loop 与 Asyncio",
         code: `# 异步编程 -> JS async/await
@@ -231,7 +249,7 @@ async def main():
     id: 'project',
     title: '实战篇',
     chapters: [
-      { 
+      {
         id: 'project-01-web-frameworks',
         title: "Python Web 开发：FastAPI/Django 简介",
         updatedAt: '2025-12-01',
@@ -252,7 +270,7 @@ async def main():
 # print("FastAPI 是现代、高性能的 Python Web 框架。")
 # print("它利用 Python 类型提示 (Type Hints)以此来提供自动验证和文档 (Swagger UI)。")`
       },
-      { 
+      {
         id: 'project-02-refactor-js',
         title: "实战项目：将 JS 应用重构为 Python",
         updatedAt: '2026-02-15', // Future date to simulate "New"
