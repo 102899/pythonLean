@@ -5,6 +5,7 @@ import MonacoEditor from '../components/MonacoEditor.vue'
 import MonacoDiffEditor from '../components/MonacoDiffEditor.vue'
 import { isDark } from '../composables/useTheme'
 import { categories as rawCategories } from '../data/curriculum'
+import { workspaces } from '../data/projectWorkspace'
 import { useProgress } from '../composables/useProgress'
 
 // Core State
@@ -41,6 +42,109 @@ const isCurrentStepComplete = computed(() => {
   if (!activeChapter.value) return false
   return isStepComplete(activeChapter.value.id, activeStep.value)
 })
+const selectedFilePath = ref(null)
+const activeWorkspace = computed(() => {
+  const ch = activeChapter.value
+  if (!ch || !ch.workspaceId) return null
+  const ws = workspaces[ch.workspaceId]
+  return ws || null
+})
+// Accumulate chapters up to the current index
+const accumulatedChapters = computed(() => {
+  const cat = activeCategory.value
+  const idx = activeChapterIndex.value
+  if (!cat || !cat.chapters || idx < 0) return []
+  return cat.chapters.slice(0, idx + 1)
+})
+// Build aggregated workspace files with per-chapter delta overlay
+const aggregatedWorkspaceFiles = computed(() => {
+  const ws = activeWorkspace.value
+  if (!ws) return {}
+  const base = { ...(ws.files || {}) }
+  const chapters = accumulatedChapters.value
+  for (const ch of chapters) {
+    const delta = ch.workspaceDelta
+    if (delta && typeof delta === 'object') {
+      for (const [path, content] of Object.entries(delta)) {
+        if (content === null) {
+          delete base[path]
+        } else {
+          base[path] = content
+        }
+      }
+    }
+  }
+  return base
+})
+// Visible files: derived purely from accumulation (base + deltas - deletions)
+const chapterVisibleFiles = computed(() => {
+  const aggFiles = aggregatedWorkspaceFiles.value
+  if (!aggFiles) return []
+  return Object.keys(aggFiles)
+})
+function buildTree(paths) {
+  const root = new Map()
+  for (const p of paths) {
+    const segs = p.split('/')
+    let curr = root
+    let acc = ''
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i]
+      const last = i === segs.length - 1
+      if (last) {
+        curr.set(s, { type: 'file', name: s, path: p })
+      } else {
+        acc = acc ? acc + '/' + s : s
+        let node = curr.get(s)
+        if (!node) {
+          node = { type: 'dir', name: s, path: acc + '/', children: new Map() }
+          curr.set(s, node)
+        }
+        curr = node.children
+      }
+    }
+  }
+  function toArray(map) {
+    const dirs = []
+    const files = []
+    for (const [, node] of map.entries()) {
+      if (node.type === 'dir') {
+        const arr = toArray(node.children)
+        node.children = arr
+        dirs.push(node)
+      } else {
+        files.push(node)
+      }
+    }
+    dirs.sort((a, b) => a.name.localeCompare(b.name))
+    files.sort((a, b) => a.name.localeCompare(b.name))
+    return [...dirs, ...files]
+  }
+  return toArray(root)
+}
+const fileTree = computed(() => {
+  const files = chapterVisibleFiles.value
+  if (!files || files.length === 0) return []
+  return buildTree(files)
+})
+const expandedDirs = ref({})
+function isDirExpanded(path) {
+  const v = expandedDirs.value[path]
+  if (v === undefined) return true
+  return v
+}
+function toggleDir(path) {
+  expandedDirs.value[path] = !isDirExpanded(path)
+}
+function openFile(path) {
+  const agg = aggregatedWorkspaceFiles.value
+  if (!agg) return
+  selectedFilePath.value = path
+  const content = agg[path]
+  if (typeof content === 'string') {
+    code.value = content.trim()
+  }
+}
 
 // Navigation Handlers
 function handleStepToggle() {
@@ -186,8 +290,15 @@ watch(activeCategoryId, () => {
 })
 
 watch(activeChapter, (newChapter) => {
-  if (newChapter && newChapter.code) {
+  if (newChapter && newChapter.workspaceId && activeWorkspace.value) {
+    const files = chapterVisibleFiles.value
+    const initial = newChapter.initialOpenFile && files.includes(newChapter.initialOpenFile) ? newChapter.initialOpenFile : files[0]
+    if (initial) {
+      openFile(initial)
+    }
+  } else if (newChapter && newChapter.code) {
     code.value = newChapter.code.trim()
+    selectedFilePath.value = null
   }
   resetQuiz()
   activeStep.value = 'learn'
@@ -348,7 +459,7 @@ function stopConsoleResize() {
         :style="{ width: sidebarWidth + 'px' }"
       >
          <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 shrink-0">
-           <h2 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ activeCategory.title }}</h2>
+          <h2 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ activeCategory?.title }}</h2>
            <span class="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 font-mono">{{ activeCategory.chapters.length }} 节</span>
          </div>
          <div class="flex-1 overflow-y-auto p-3 space-y-1">
@@ -396,7 +507,7 @@ function stopConsoleResize() {
         <!-- MODE 1: LEARN -->
         <div v-if="activeStep === 'learn'" key="learn" class="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
            <div class="prose prose-slate dark:prose-invert max-w-none">
-             <h1 class="text-3xl font-bold mb-6 text-slate-900 dark:text-white">{{ activeChapter.title }}</h1>
+             <h1 class="text-3xl font-bold mb-6 text-slate-900 dark:text-white">{{ activeChapter?.title }}</h1>
              <div v-if="activeChapter.learnContent" v-html="activeChapter.learnContent"></div>
              <div v-else class="text-slate-500 dark:text-slate-500 italic p-10 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
                本章节暂无详解内容，请直接开始实操。
@@ -418,10 +529,10 @@ function stopConsoleResize() {
         </div>
 
         <!-- MODE 2: PRACTICE (EDITOR) -->
-        <div v-else-if="activeStep === 'practice'" key="practice" class="flex-1 flex flex-col lg:flex-row min-w-0 w-full">
+        <div v-else-if="activeStep === 'practice'" key="practice" class="flex-1 flex flex-row min-w-0 w-full">
           <div class="flex-1 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1e1e1e] relative group flex flex-col min-h-0 min-w-0">
              <div class="flex items-center justify-between px-4 py-2 bg-white dark:bg-[#2d2d2d] border-b border-slate-200 dark:border-black/20 text-xs shadow-sm z-10 shrink-0">
-                <span class="text-slate-500 dark:text-gray-400 font-mono">main.py</span>
+                <span class="text-slate-500 dark:text-gray-400 font-mono">{{ selectedFilePath || 'main.py' }}</span>
                 
                 <div class="flex items-center gap-3">
                    <button @click="handleStepToggle" 
@@ -441,13 +552,71 @@ function stopConsoleResize() {
                 </div>
              </div>
              
-             <!-- Monaco Editor Component -->
-             <div class="flex-1 w-full h-full overflow-hidden" style="min-height: 400px; display: block;">
-                <MonacoEditor 
-                  v-model="code"
-                  :theme="isDark ? 'vs-dark' : 'vs'"
-                  language="python"
-                />
+             <div class="flex-1 w-full h-full overflow-hidden flex flex-row" style="min-height: 400px;">
+               <div v-if="activeWorkspace && chapterVisibleFiles.length > 0" class="w-56 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto">
+                  <template v-for="node in fileTree" :key="node.path">
+                    <div v-if="node.type === 'dir'" @click="toggleDir(node.path)"
+                      :class="[
+                        'px-3 py-2 text-xs font-mono cursor-pointer select-none flex items-center gap-2',
+                        isDirExpanded(node.path) 
+                          ? 'text-slate-900 dark:text-slate-100' 
+                          : 'text-slate-600 dark:text-slate-300'
+                      ]">
+                      <span class="w-4 text-center">{{ isDirExpanded(node.path) ? '▾' : '▸' }}</span>
+                      <span>📁 {{ node.name }}</span>
+                    </div>
+                    <div v-else @click="openFile(node.path)"
+                      :class="[
+                        'px-3 py-2 text-xs font-mono cursor-pointer select-none pl-7',
+                        selectedFilePath === node.path 
+                          ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      ]">
+                      📄 {{ node.name }}
+                    </div>
+                    <div v-if="node.type === 'dir' && isDirExpanded(node.path)" class="pl-2">
+                      <template v-for="child in node.children" :key="child.path">
+                        <div v-if="child.type === 'dir'" @click="toggleDir(child.path)"
+                          :class="[
+                            'px-3 py-2 text-xs font-mono cursor-pointer select-none flex items-center gap-2 pl-4',
+                            isDirExpanded(child.path) 
+                              ? 'text-slate-900 dark:text-slate-100' 
+                              : 'text-slate-600 dark:text-slate-300'
+                          ]">
+                          <span class="w-4 text-center">{{ isDirExpanded(child.path) ? '▾' : '▸' }}</span>
+                          <span>📁 {{ child.name }}</span>
+                        </div>
+                        <div v-else @click="openFile(child.path)"
+                          :class="[
+                            'px-3 py-2 text-xs font-mono cursor-pointer select-none pl-9',
+                            selectedFilePath === child.path 
+                              ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          ]">
+                          📄 {{ child.name }}
+                        </div>
+                        <div v-if="child.type === 'dir' && isDirExpanded(child.path)" class="pl-4">
+                          <div v-for="g in child.children" :key="g.path" @click="g.type === 'file' && openFile(g.path)"
+                            :class="[
+                              'px-3 py-2 text-xs font-mono cursor-pointer select-none pl-12',
+                              selectedFilePath === g.path 
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+                                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ]">
+                            <span v-if="g.type === 'file'">📄 {{ g.name }}</span>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+               </div>
+               <div class="flex-1 w-full h-full overflow-hidden">
+                  <MonacoEditor 
+                    v-model="code"
+                    :theme="isDark ? 'vs-dark' : 'vs'"
+                    language="python"
+                  />
+               </div>
              </div>
           </div>
           
@@ -529,7 +698,7 @@ function stopConsoleResize() {
                <div class="max-w-4xl mx-auto p-8 min-h-full bg-white dark:bg-[#1e1e1e] border-x border-slate-100 dark:border-slate-800 shadow-sm">
                    <div class="flex items-center justify-between mb-8">
                      <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                       <span class="text-3xl">📝</span> 章节考核: {{ activeChapter.title }}
+                       <span class="text-3xl">📝</span> 章节考核: {{ activeChapter?.title }}
                      </h2>
                      
                      <button @click="handleStepToggle" 

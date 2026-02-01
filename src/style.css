@@ -11,3 +11,10 @@
   --color-primary-800: #3730a3;
   --color-primary-900: #312e81;
 }
+
+/* Code block overflow handling */
+pre, code {
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
