@@ -1,5 +1,5 @@
 export default {
-  id: 'core-08-iter-protocol-lite',
+  id: 'core-04-iter-protocol-lite',
   title: "迭代器协议最小集：iter、__iter__、__next__",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">Python 迭代协议：从概念到自定义</h3>

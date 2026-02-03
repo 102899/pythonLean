@@ -1,5 +1,5 @@
 export default {
-  id: 'core-04-generators-lite',
+  id: 'core-05-generators-lite',
   title: "生成器最小集：yield、生成表达式、next",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">Python 迭代与惰性：生成器轻量版</h3>

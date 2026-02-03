@@ -1,5 +1,5 @@
 export default {
-  id: 'core-04-dataclass-frozen-lite',
+  id: 'core-16-dataclass-frozen-lite',
   title: "dataclass 不可变与比较语义最小集",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">不可变与比较：dataclass 的 frozen/eq/order</h3>

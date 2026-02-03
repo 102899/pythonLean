@@ -1,5 +1,5 @@
 export default {
-  id: 'core-06-exceptions-lite',
+  id: 'core-07-exceptions-lite',
   title: "异常处理最小集：try、except、else、finally、raise",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">健壮性：异常处理轻量版</h3>

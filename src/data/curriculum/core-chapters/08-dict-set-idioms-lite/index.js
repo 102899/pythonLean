@@ -1,5 +1,5 @@
 export default {
-  id: 'core-07-dict-set-idioms-lite',
+  id: 'core-08-dict-set-idioms-lite',
   title: "字典与集合技巧最小集：合并、默认值、集合运算",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">Python 数据结构惯用法：Dict/Set 轻量版</h3>

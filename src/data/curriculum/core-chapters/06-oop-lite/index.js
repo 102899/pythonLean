@@ -1,5 +1,5 @@
 export default {
-  id: 'core-05-oop-lite',
+  id: 'core-06-oop-lite',
   title: "面向对象最小集：class、__init__、self、方法",
   learnContent: `
           <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white">JS &rarr; Python：OOP 轻量版</h3>
