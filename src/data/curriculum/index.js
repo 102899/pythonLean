@@ -1,5 +1,5 @@
 import { basics } from './basics'
-import { core } from './core'
+import { core } from './core/index'
 import { advanced } from './advanced'
 import { project } from './project/index'
 
